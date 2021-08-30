@@ -1,4 +1,4 @@
-__version__ = "4.0"
+__version__ = "6.0"
 
 import os
 import json
@@ -7,7 +7,7 @@ import shutil
 import tempfile
 import logging
 
-from meshroom.core import desc
+from meshroom.core import desc, Version
 
 
 Viewpoint = [
@@ -254,6 +254,25 @@ The metadata needed are:
         ),
     ]
 
+    def upgradeAttributeValues(self, attrValues, fromVersion):
+        # Starting with version 5, the focal length is now split on x and y
+        if fromVersion < Version(5, 0):
+            for intrinsic in attrValues['intrinsics']:
+                pxFocalLength = intrinsic['pxFocalLength']
+                if not isinstance(pxFocalLength, dict):
+                    intrinsic['pxFocalLength'] = {"x": pxFocalLength, "y": pxFocalLength}
+
+        # Starting with version 6, the principal point is now relative to the image center
+        if fromVersion < Version(6, 0):
+            for intrinsic in attrValues['intrinsics']:
+                principalPoint = intrinsic['principalPoint']
+                intrinsic['principalPoint'] = {
+                    "x": int(principalPoint["x"] - 0.5 * intrinsic['width']),
+                    "y": int(principalPoint["y"] - 0.5 * intrinsic['height'])
+                    }
+
+        return attrValues
+
     def readSfMData(self, sfmFile):
         return readSfMData(sfmFile)
 
@@ -319,7 +338,7 @@ The metadata needed are:
                     view['metadata'] = json.loads(view['metadata'])
 
             sfmData = {
-                "version": [1, 2, 0],
+                "version": [1, 2, 1],
                 "views": views + newViews,
                 "intrinsics": intrinsics,
                 "featureFolder": "",
